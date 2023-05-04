@@ -17,9 +17,9 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 public class ShulkerManager {
@@ -46,7 +46,7 @@ public class ShulkerManager {
     }
 
 
-    public void openShulkerBoxInventory(Player player, ItemStack shulkerStack, SlotType slotType, int rawSlot) {
+    public void openShulkerBoxInventory(Player player, ItemStack shulkerStack, int slot) {
         if (instance.isLockFeatures()) return;
         BSBConfig bsbConfig = instance.getBSBConfig();
 
@@ -95,63 +95,78 @@ public class ShulkerManager {
         // Restore the cursor item
         player.setItemOnCursor(cursorItem);
         ItemStack clone = shulkerStack.clone();
-        openShulkerInventories.put(inventory, new ShulkerOpenData(clone, player.getLocation(), slotType, rawSlot));
+        openShulkerInventories.put(inventory, new ShulkerOpenData(clone, player.getLocation(), slot));
 
         sendSoundAndMessage(player, shulkerStack, MessageSoundComb.OPEN);
     }
+    public boolean isShulkerStillValid(Player player, Inventory inventory) {
+        if (!openShulkerInventories.containsKey(inventory)) {
+            return false;
+        }
+        ShulkerOpenData shulkerOpenData = openShulkerInventories.get(inventory);
+        ItemStack playerItem = player.getInventory().getItem(shulkerOpenData.getSlot());
+        return playerItem != null && playerItem.equals(shulkerOpenData.getItemStack());
+    }
 
-    public ItemStack closeShulkerBox(Player player, Inventory inventory, Optional<ItemStack> useStack) {
-        player.getOpenInventory().getTopInventory();
+    // Players have found too many ways to remove the shulker from the inventory, just update the shulker on each item change...
+    public boolean updateShulkerBox(Player player, Inventory inventory) {
+        if (! isShulkerStillValid(player, inventory)) {
+            //You should check isShulkerStillValid first!
+            //Something has gone quite wrong if we ever get to this point!
+            closeShulkerBox(player, inventory);
+            return false;
+        }
+
+        ShulkerOpenData shulkerOpenData = openShulkerInventories.get(inventory);
+        ItemStack playerItem = player.getInventory().getItem(shulkerOpenData.getSlot());
+
+        //Update the itemstack
+
+        BlockStateMeta cMeta = (BlockStateMeta) playerItem.getItemMeta();
+        ShulkerBox shulker = (ShulkerBox) cMeta.getBlockState();
+        shulker.getInventory().setContents(inventory.getContents());
+        cMeta.setBlockState(shulker);
+        playerItem.setItemMeta(cMeta);
+        player.updateInventory();
+
+        //Update the ShulkerOpenData
+        ShulkerOpenData newOpenShulkerData = new ShulkerOpenData(playerItem.clone(), shulkerOpenData.getOpenLocation(),
+                                                                 shulkerOpenData.getSlot());
+        openShulkerInventories.put(inventory, newOpenShulkerData);
+        return true;
+    }
+
+    public ItemStack closeShulkerBox(Player player, Inventory inventory) {
         if (!openShulkerInventories.containsKey(inventory)) return null;
         ShulkerOpenData shulkerOpenData = openShulkerInventories.remove(inventory);
 
-        ItemStack stackClone = shulkerOpenData.getItemStack();
-        if (useStack.isPresent()) {
-            stackClone = useStack.get();
-        }
+        ItemStack dataItem = shulkerOpenData.getItemStack();
 
         if (player.getOpenInventory().getTopInventory().getType() == InventoryType.SHULKER_BOX) {
             player.closeInventory();
         }
 
-        ItemStack targetItem = stackClone;
-        boolean found = false;
-        if (shulkerOpenData.getSlotType() == SlotType.HOTBAR) {
-            ItemStack is = player.getInventory().getItemInMainHand();
-            if (is.equals(stackClone)) {
-                targetItem = is;
-                found = true;
+        ItemStack playerItem = player.getInventory().getItem(shulkerOpenData.getSlot());
+
+        if (playerItem == null || !playerItem.equals(shulkerOpenData.getItemStack())) {
+            //Check if there was any changes
+            BlockStateMeta cMeta = (BlockStateMeta) dataItem.getItemMeta();
+            ShulkerBox shulker = (ShulkerBox) cMeta.getBlockState();
+            if (! Arrays.deepEquals(shulker.getInventory().getContents(),
+                                    inventory.getContents())) {
+                Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "WARNING! Player " + player.getName() + " closed a shulkerbox and changes were not saved!");
             }
-        } else if (shulkerOpenData.getSlotType() == SlotType.INVENTORY) {
-            ItemStack is = player.getInventory().getItem(shulkerOpenData.getRawSlot());
-            if (is != null && is.equals(stackClone)) {
-                targetItem = is;
-                found = true;
-            }
+            return null;
         }
 
-        //Keep as fallback
-        if (!found) {
-            for (ItemStack is : player.getInventory().getContents()) {
-                if (is != null && is.equals(stackClone)) {
-                    found = true;
-                    targetItem = is;
-                    break;
-                }
-            }
-        }
-        if (!found) {
-            Bukkit.getConsoleSender().sendMessage(ChatColor.RED + "WARNING! Player " + player.getName() + " closed a shulkerbox and changes were not saved!");
-        }
-
-        BlockStateMeta cMeta = (BlockStateMeta) targetItem.getItemMeta();
+        BlockStateMeta cMeta = (BlockStateMeta) playerItem.getItemMeta();
         ShulkerBox shulker = (ShulkerBox) cMeta.getBlockState();
         shulker.getInventory().setContents(inventory.getContents());
         cMeta.setBlockState(shulker);
-        targetItem.setItemMeta(cMeta);
+        playerItem.setItemMeta(cMeta);
         player.updateInventory();
-        sendSoundAndMessage(player, targetItem, MessageSoundComb.CLOSE);
-        return targetItem;
+        sendSoundAndMessage(player, playerItem, MessageSoundComb.CLOSE);
+        return playerItem;
     }
 
     public boolean isShulkerInventory(Inventory inv) {
@@ -191,7 +206,7 @@ public class ShulkerManager {
             Player player = (Player) entry.getKey();
             player.closeInventory();
             if (disableCall) {
-                closeShulkerBox(player, entry.getValue(), Optional.empty());
+                closeShulkerBox(player, entry.getValue());
             }
         }
 

@@ -3,6 +3,7 @@ package dev.martinl.bsbrewritten.listeners;
 import dev.martinl.bsbrewritten.BSBRewritten;
 import dev.martinl.bsbrewritten.manager.ShulkerOpenData;
 import dev.martinl.bsbrewritten.util.MaterialUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
@@ -19,7 +20,6 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.Optional;
 
 public class InventoryCloseListener implements Listener {
     private final BSBRewritten instance;
@@ -38,7 +38,7 @@ public class InventoryCloseListener implements Listener {
             return; //check that the shulker inventory is not a block inventory
         if (!instance.getShulkerManager().isShulkerInventory(inventory))
             return; //check that the inventory belongs to BSB
-        instance.getShulkerManager().closeShulkerBox(player, inventory, Optional.empty());
+        instance.getShulkerManager().closeShulkerBox(player, inventory);
         player.setItemOnCursor(null); //Workaround for Shulker box caught in cursor after opening with right click in inventory
     }
 
@@ -74,7 +74,7 @@ public class InventoryCloseListener implements Listener {
         ShulkerOpenData sod = instance.getShulkerManager().getShulkerOpenData(e.getPlayer().getOpenInventory().getTopInventory());
         if (sod == null || e.getTo() == null) return;
         if (sod.getOpenLocation().distance(e.getTo()) > 1) {
-            instance.getShulkerManager().closeShulkerBox(e.getPlayer(), e.getPlayer().getOpenInventory().getTopInventory(), Optional.empty());
+            instance.getShulkerManager().closeShulkerBox(e.getPlayer(), e.getPlayer().getOpenInventory().getTopInventory());
         }
     }
 
@@ -87,7 +87,7 @@ public class InventoryCloseListener implements Listener {
             return; //check if the shulker is a block
         if (!instance.getShulkerManager().doesPlayerHaveShulkerOpen(e.getPlayer().getUniqueId()))
             return; //check if the inventory belongs to BSB
-        instance.getShulkerManager().closeShulkerBox(e.getPlayer(), e.getPlayer().getOpenInventory().getTopInventory(), Optional.empty());
+        instance.getShulkerManager().closeShulkerBox(e.getPlayer(), e.getPlayer().getOpenInventory().getTopInventory());
     }
 
     @EventHandler
@@ -109,7 +109,7 @@ public class InventoryCloseListener implements Listener {
         if (MaterialUtil.isShulkerBox(e.getRecipe().getResult().getType())) {
             e.setCancelled(true);
         }
-        instance.getShulkerManager().closeShulkerBox(player, player.getOpenInventory().getTopInventory(), Optional.empty());
+        instance.getShulkerManager().closeShulkerBox(player, player.getOpenInventory().getTopInventory());
     }
 
     @EventHandler
@@ -121,7 +121,7 @@ public class InventoryCloseListener implements Listener {
         if (player.getOpenInventory().getTopInventory().getLocation() != null) return; //check if the shulker is a block
         if (!instance.getShulkerManager().doesPlayerHaveShulkerOpen(player.getUniqueId()))
             return; //check if the inventory belongs to BSB
-        instance.getShulkerManager().closeShulkerBox(player, player.getOpenInventory().getTopInventory(), Optional.empty());
+        instance.getShulkerManager().closeShulkerBox(player, player.getOpenInventory().getTopInventory());
     }
 
     /*
@@ -133,7 +133,7 @@ public class InventoryCloseListener implements Listener {
     public void onInventoryOpen(InventoryOpenEvent e) {
         if (instance.getShulkerManager().doesPlayerHaveShulkerOpen(e.getPlayer().getUniqueId()) && !instance.getShulkerManager().isShulkerInventory(e.getInventory())
                 && e.getPlayer().getOpenInventory().getTopInventory().getType() == InventoryType.SHULKER_BOX) {
-            instance.getShulkerManager().closeShulkerBox((Player) e.getPlayer(), e.getPlayer().getOpenInventory().getTopInventory(), Optional.empty());
+            instance.getShulkerManager().closeShulkerBox((Player) e.getPlayer(), e.getPlayer().getOpenInventory().getTopInventory());
         }
     }
 
@@ -144,6 +144,7 @@ public class InventoryCloseListener implements Listener {
      * */
     @EventHandler(ignoreCancelled = true)
     public void onClick(InventoryClickEvent e) {
+        updateShulkerOn(e); //Update the content of the shulker after this event
         Player player = (Player) e.getWhoClicked();
         Inventory clickedInventory = e.getClickedInventory();
         if (clickedInventory == null) return;
@@ -164,6 +165,11 @@ public class InventoryCloseListener implements Listener {
         if (correspondingStack.equals(clickedItem)) {
             e.setCancelled(true);
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onDrag(InventoryDragEvent e) {
+        updateShulkerOn(e);
     }
 
     /*
@@ -200,5 +206,19 @@ public class InventoryCloseListener implements Listener {
         if (!instance.getShulkerManager().doesPlayerHaveShulkerOpen(player.getUniqueId()))
             return; //check if the inventory belongs to BSB
         cancellable.setCancelled(true);
+    }
+
+    @EventHandler
+    private void updateShulkerOn(InventoryInteractEvent e) {
+        if (instance.getShulkerManager().doesPlayerHaveShulkerOpen(e.getWhoClicked().getUniqueId())) {
+            if (! instance.getShulkerManager().isShulkerStillValid((Player) e.getWhoClicked(), e.getInventory())) {
+                e.setCancelled(true);
+                Bukkit.getScheduler().runTask(instance, () ->
+                        instance.getShulkerManager().closeShulkerBox((Player) e.getWhoClicked(), e.getInventory()));
+            } else {
+                Bukkit.getScheduler().runTask(instance, () ->
+                        instance.getShulkerManager().updateShulkerBox((Player) e.getWhoClicked(), e.getInventory()));
+            }
+        }
     }
 }

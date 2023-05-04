@@ -1,7 +1,6 @@
 package dev.martinl.bsbrewritten.listeners;
 
 import dev.martinl.bsbrewritten.BSBRewritten;
-import dev.martinl.bsbrewritten.manager.SlotType;
 import dev.martinl.bsbrewritten.util.MaterialUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -43,7 +42,7 @@ public class InteractListener implements Listener {
         }
         BlockStateMeta bsm = (BlockStateMeta) is.getItemMeta();
         assert bsm != null;
-        instance.getShulkerManager().openShulkerBoxInventory(e.getPlayer(), is, SlotType.HOTBAR, e.getPlayer().getInventory().getHeldItemSlot());
+        instance.getShulkerManager().openShulkerBoxInventory(e.getPlayer(), is, e.getPlayer().getInventory().getHeldItemSlot());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -73,7 +72,7 @@ public class InteractListener implements Listener {
             ItemStack currentItem = clickedInventory.getItem(e.getSlot());
             // Make sure the item has not changed since the click.
             if (oldItem.equals(currentItem)) {
-                instance.getShulkerManager().openShulkerBoxInventory(player, currentItem, SlotType.INVENTORY, e.getRawSlot());
+                instance.getShulkerManager().openShulkerBoxInventory(player, currentItem, e.getSlot());
             }
         });
     }
