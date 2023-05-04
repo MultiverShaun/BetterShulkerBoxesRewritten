@@ -208,7 +208,7 @@ public class InventoryCloseListener implements Listener {
         cancellable.setCancelled(true);
     }
 
-    @EventHandler
+
     private void updateShulkerOn(InventoryInteractEvent e) {
         if (instance.getShulkerManager().doesPlayerHaveShulkerOpen(e.getWhoClicked().getUniqueId())) {
             if (! instance.getShulkerManager().isShulkerStillValid((Player) e.getWhoClicked(), e.getInventory())) {
