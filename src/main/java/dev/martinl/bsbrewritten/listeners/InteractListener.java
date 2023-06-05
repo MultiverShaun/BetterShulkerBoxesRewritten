@@ -26,7 +26,7 @@ public class InteractListener implements Listener {
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
         if(!instance.getBSBConfig().isEnableRightClickOpen()) return;
-        if (e.getAction() != Action.RIGHT_CLICK_AIR || e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         ItemStack is = e.getPlayer().getInventory().getItemInMainHand();
         if(is.getAmount() != 1) return; // Do not open if stacked: compatible stacking plugin
         if (!MaterialUtil.isShulkerBox(is.getType())) return;
