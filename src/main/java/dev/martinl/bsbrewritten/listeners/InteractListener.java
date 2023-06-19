@@ -15,6 +15,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 
+import java.util.Objects;
+
 public class InteractListener implements Listener {
     private final BSBRewritten instance;
 
@@ -28,9 +30,10 @@ public class InteractListener implements Listener {
         if(!instance.getBSBConfig().isEnableRightClickOpen()) return;
         if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         ItemStack is = e.getPlayer().getInventory().getItemInMainHand();
-        if (!is.getItemMeta().getDisplayName().contains("Backpack")) return; // Make sure item is backpack
         if(is.getAmount() != 1) return; // Do not open if stacked: compatible stacking plugin
         if (!MaterialUtil.isShulkerBox(is.getType())) return;
+        if (!Objects.requireNonNull(is.getItemMeta()).hasDisplayName()) return;
+        if (!is.getItemMeta().getDisplayName().contains("Backpack")) return; // Make sure item is backpack
         //todo permissions, cooldown, worldguard area perms, etc
         if (BSBRewritten.getWorldGuardManager() != null) {
             for (String regionID : instance.getBSBConfig().getRegionList()) {
